@@ -48,17 +48,30 @@ class RequestParametersConstraint extends Constraint
      */
     protected function matches($other)
     {
-        $parameters = $this->schemaManager->getPath([
-            'paths',
-            $this->path,
-            $this->httpMethod,
-            'parameters'
-        ]);
-        $fields = $other->getBody()->getFields();
+        $parameters = $this->schemaManager->getRequestParameters($this->path, $this->httpMethod);
+
+        $body = $other->getBody();
+        if ($body !== null) {
+            $fieldsInBody = $body->getFields();
+        }
+        $qs = $other->getQuery();
+        if ($qs !== null) {
+            $fieldsInQS = $qs->toArray();
+        }
+
         $keys = [];
         foreach($parameters as $param) {
+            if ($param->in == 'formData') {
+                $fieldToCheck = $fieldsInBody[$param->name];
+            }
+            elseif ($param->in == 'query') {
+                $fieldToCheck = $fieldsInQS[$param->name];
+            }
+            else {
+                continue; // probably in path
+            }
             // 1. Search for required fields
-            if ($param->required && !isset($fields[$param->name])) {
+            if ($param->required && !isset($fieldToCheck)) {
                 $this->lastError = 'Field "'.$param->name.'" required by Schema is not present';
                 return false;
             }
@@ -66,13 +79,13 @@ class RequestParametersConstraint extends Constraint
             // 2. Check for value type
             switch($param->type) {
                 case 'integer':
-                    if (!is_numeric($fields[$param->name])) {
+                    if (!is_numeric($fieldToCheck)) {
                         $this->lastError = 'Value for field "'.$param->name.'" is not an integer';
                         return false;
                     }
                     break;
                 case 'boolean':
-                    if (is_string($fields[$param->name])) {
+                    if (is_string($fieldToCheck)) {
                         $this->lastError = 'Value for boolean field "'.$param->name.'" cannot be a string';
                         return false;
                     }
@@ -87,6 +100,15 @@ class RequestParametersConstraint extends Constraint
         }
 
         return true;
+    }
+
+    /**
+     * Check field list against Schema
+     * @param  array $fields List of fields from body, querystring, etc.
+     * @return boolean
+     */
+    protected function checkFields($fields) {
+
     }
 
     protected function failureDescription($other)
