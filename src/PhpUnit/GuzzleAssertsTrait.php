@@ -76,6 +76,8 @@ trait GuzzleAssertsTrait
         SchemaManager $schemaManager,
         $message = ''
     ) {
+        $this->assertRequestParametersMatch($request, $schemaManager, $request->getPath(), $request->getMethod(), $message);
+
         $this->assertResponseMatch($response, $schemaManager, $request->getPath(), $request->getMethod(), $message);
     }
 }

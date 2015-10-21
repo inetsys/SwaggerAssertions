@@ -114,6 +114,33 @@ class SchemaManager
     }
 
     /**
+     * Get the request parameters for the given API operation.
+     *
+     * @param string $path Swagger path template.
+     * @param string $method
+     *
+     * @return stdClass[]
+     */
+    public function getRequestParameters($path, $method)
+    {
+        $method = strtolower($method);
+        $requestParameters = [
+            'paths',
+            $path,
+            $method,
+            'parameters',
+        ];
+
+        if ($this->hasPath($requestParameters)) {
+            $parameters = $this->getPath($requestParameters);
+        } else {
+            $parameters = $this->getPath(['produces']);
+        }
+
+        return $parameters;
+    }
+
+    /**
      * @param string[] $segments
      *
      * @return bool If path exists.
