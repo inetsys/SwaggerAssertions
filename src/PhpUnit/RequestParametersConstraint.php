@@ -71,6 +71,11 @@ class RequestParametersConstraint extends Constraint
                         return false;
                     }
                     break;
+                case 'boolean':
+                    if (is_string($fields[$param->name])) {
+                        $this->lastError = 'Value for boolean field "'.$param->name.'" cannot be a string';
+                        return false;
+                    }
                 case 'string':
             }
         }
