@@ -49,6 +49,12 @@ class ResponseBodyConstraint extends Constraint
 
     protected function matches($other)
     {
+        if ( ($this->httpCode == 204 || $this->httpCode == 304)
+             &&
+             empty($other) ) {
+                // No Content
+                return true;
+        }
         $validator = $this->getValidator($other);
 
         return $validator->isValid();
