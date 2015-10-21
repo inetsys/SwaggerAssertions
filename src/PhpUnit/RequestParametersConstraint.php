@@ -77,19 +77,21 @@ class RequestParametersConstraint extends Constraint
             }
             $keys[] = $param->name;
             // 2. Check for value type
-            switch($param->type) {
-                case 'integer':
-                    if (!is_numeric($fieldToCheck)) {
-                        $this->lastError = 'Value for field "'.$param->name.'" is not an integer';
-                        return false;
-                    }
-                    break;
-                case 'boolean':
-                    if (is_string($fieldToCheck)) {
-                        $this->lastError = 'Value for boolean field "'.$param->name.'" cannot be a string';
-                        return false;
-                    }
-                case 'string':
+            if (!empty($fieldToCheck)) {
+                switch($param->type) {
+                    case 'integer':
+                        if (!is_numeric($fieldToCheck)) {
+                            $this->lastError = 'Value for field "'.$param->name.'" is not an integer';
+                            return false;
+                        }
+                        break;
+                    case 'boolean':
+                        if (is_string($fieldToCheck)) {
+                            $this->lastError = 'Value for boolean field "'.$param->name.'" cannot be a string';
+                            return false;
+                        }
+                    case 'string':
+                }
             }
         }
         // 3. Search for unexpected fields
