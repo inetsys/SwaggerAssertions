@@ -62,7 +62,10 @@ class RequestParametersConstraint extends Constraint
         $keys = [];
         foreach($parameters as $param) {
             if ($param->in == 'formData') {
-                $fieldToCheck = $fieldsInBody[$param->name];
+                if ($param->type == 'file')
+                    $fieldToCheck = $body->getFile($param->name);
+                else
+                    $fieldToCheck = $fieldsInBody[$param->name];
             }
             elseif ($param->in == 'query') {
                 $fieldToCheck = $fieldsInQS[$param->name];
