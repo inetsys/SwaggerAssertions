@@ -51,13 +51,10 @@ class RequestParametersConstraint extends Constraint
         $parameters = $this->schemaManager->getRequestParameters($this->path, $this->httpMethod);
 
         $body = $other->getBody();
-        if ($body !== null) {
-            $fieldsInBody = $body->getFields();
-        }
+        $fieldsInBody = $body !== null ? $body->getFields() : [];
+
         $qs = $other->getQuery();
-        if ($qs !== null) {
-            $fieldsInQS = $qs->toArray();
-        }
+        $fieldsInQS = $qs !== null ? $qs->toArray() : [];
 
         $keys = [];
         foreach($parameters as $param) {
@@ -65,16 +62,16 @@ class RequestParametersConstraint extends Constraint
                 if ($param->type == 'file')
                     $fieldToCheck = $body->getFile($param->name);
                 else
-                    $fieldToCheck = $fieldsInBody[$param->name];
+                    $fieldToCheck = array_key_exists($param->name, $fieldsInBody) ? $fieldsInBody[$param->name] : null;
             }
             elseif ($param->in == 'query') {
-                $fieldToCheck = $fieldsInQS[$param->name];
+                $fieldToCheck = array_key_exists($param->name, $fieldsInQS) ? $fieldsInQS[$param->name] : null;
             }
             else {
                 continue; // probably in path
             }
             // 1. Search for required fields
-            if ($param->required && !isset($fieldToCheck)) {
+            if (isset($param->required) && $param->required && !isset($fieldToCheck)) {
                 $this->lastError = 'Field "'.$param->name.'" required by Schema is not present';
                 return false;
             }
@@ -97,7 +94,9 @@ class RequestParametersConstraint extends Constraint
                 }
             }
         }
+
         // 3. Search for unexpected fields
+        $fields = array_merge($fieldsInBody, $fieldsInQS);
         $diff = array_diff(array_keys($fields), $keys);
         if (!empty($diff)) {
             $this->lastError = 'Fields '.json_encode(array_values($diff)).' present in request are not expected according to Schema';
@@ -132,3 +131,4 @@ class RequestParametersConstraint extends Constraint
     }
 
 }
+
