@@ -2,15 +2,15 @@
 
 namespace FR3D\SwaggerAssertionsTest\PhpUnit;
 
-use FR3D\SwaggerAssertions\PhpUnit\ResponseHeadersConstraint;
+use FR3D\SwaggerAssertions\PhpUnit\RequestHeadersConstraint;
 use PHPUnit_Framework_ExpectationFailedException as ExpectationFailedException;
 use PHPUnit_Framework_TestCase as TestCase;
 use PHPUnit_Framework_TestFailure as TestFailure;
 
 /**
- * @covers FR3D\SwaggerAssertions\PhpUnit\ResponseHeadersConstraint
+ * @covers FR3D\SwaggerAssertions\PhpUnit\RequestHeadersConstraint
  */
-class ResponseHeadersConstraintTest extends TestCase
+class RequestHeadersConstraintTest extends TestCase
 {
     /**
      * @var \PHPUnit_Framework_Constraint
@@ -19,23 +19,22 @@ class ResponseHeadersConstraintTest extends TestCase
 
     protected function setUp()
     {
-        $schema = '{"ETag":{"minimum":1}}';
+        $schema = '[{"name":"X-Required-Header","in":"header","description":"Required header","required":true,"type":"string"},{"name":"X-Optional-Header","in":"header","description":"Optional header","type":"string"}]';
         $schema = json_decode($schema);
 
-        $this->constraint = new ResponseHeadersConstraint($schema);
+        $this->constraint = new RequestHeadersConstraint($schema);
     }
 
     public function testConstraintDefinition()
     {
         self::assertEquals(1, count($this->constraint));
-        self::assertEquals('is a valid response header', $this->constraint->toString());
+        self::assertEquals('is a valid request header', $this->constraint->toString());
     }
 
     public function testValidHeaders()
     {
         $headers = [
-            'Content-Type' => 'application/json',
-            'ETag' => '123',
+            'X-Required-Header' => 'any',
         ];
 
         self::assertTrue($this->constraint->evaluate($headers, '', true), $this->constraint->evaluate($headers));
@@ -44,8 +43,7 @@ class ResponseHeadersConstraintTest extends TestCase
     public function testCaseInsensitiveValidHeaders()
     {
         $headers = [
-            'Content-Type' => 'application/json',
-            'etag' => '123',
+            'X-required-HEADER' => 'application/json',
         ];
 
         self::assertTrue($this->constraint->evaluate($headers, '', true), $this->constraint->evaluate($headers));
@@ -54,8 +52,7 @@ class ResponseHeadersConstraintTest extends TestCase
     public function testInvalidHeaderType()
     {
         $headers = [
-            'Content-Type' => 'application/json',
-            // 'ETag' => '123', // Removed intentional
+            'X-Optional-Header' => 'any',
         ];
 
         self::assertFalse($this->constraint->evaluate($headers, '', true));
@@ -66,8 +63,8 @@ class ResponseHeadersConstraintTest extends TestCase
         } catch (ExpectationFailedException $e) {
             self::assertEquals(
                 <<<EOF
-Failed asserting that {"Content-Type":"application\/json"} is a valid response header.
-[etag] The property etag is required
+Failed asserting that {"X-Optional-Header":"any"} is a valid request header.
+[x-required-header] The property x-required-header is required
 
 EOF
                 ,

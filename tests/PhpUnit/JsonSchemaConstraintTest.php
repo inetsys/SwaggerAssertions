@@ -2,19 +2,16 @@
 
 namespace FR3D\SwaggerAssertionsTest\PhpUnit;
 
-use FR3D\SwaggerAssertions\PhpUnit\ResponseBodyConstraint;
-use FR3D\SwaggerAssertions\SchemaManager;
+use FR3D\SwaggerAssertions\PhpUnit\JsonSchemaConstraint;
 use PHPUnit_Framework_ExpectationFailedException as ExpectationFailedException;
 use PHPUnit_Framework_TestCase as TestCase;
 use PHPUnit_Framework_TestFailure as TestFailure;
 
-class ResponseBodyConstraintTest extends TestCase
+/**
+ * @covers FR3D\SwaggerAssertions\PhpUnit\JsonSchemaConstraint
+ */
+class JsonSchemaConstraintTest extends TestCase
 {
-    /**
-     * @var SchemaManager
-     */
-    protected $schemaManager;
-
     /**
      * @var \PHPUnit_Framework_Constraint
      */
@@ -22,14 +19,26 @@ class ResponseBodyConstraintTest extends TestCase
 
     protected function setUp()
     {
-        $this->schemaManager = new SchemaManager('file://' . __DIR__ . '/../fixture/petstore-with-external-docs.json');
-        $this->constraint = new ResponseBodyConstraint($this->schemaManager, '/pets', 'get', 200);
+        $schema = <<<JSON
+{
+  "type":"array",
+  "items":{
+    "type":"object",
+    "required":["id","name"],
+    "externalDocs":{"description":"find more info here","url":"https:\/\/swagger.io\/about"},
+    "properties":{"id":{"type":"integer","format":"int64"},"name":{"type":"string"},"tag":{"type":"string"}}
+  }
+}
+JSON;
+        $schema = json_decode($schema);
+
+        $this->constraint = new JsonSchemaConstraint($schema, 'context');
     }
 
     public function testConstraintDefinition()
     {
         self::assertEquals(1, count($this->constraint));
-        self::assertEquals('is valid', $this->constraint->toString());
+        self::assertEquals('is a valid context', $this->constraint->toString());
     }
 
     public function testValidSchema()
@@ -66,7 +75,7 @@ JSON;
         } catch (ExpectationFailedException $e) {
             self::assertEquals(
                 <<<EOF
-Failed asserting that [{"id":123456789}] is valid.
+Failed asserting that [{"id":123456789}] is a valid context.
 [name] The property name is required
 
 EOF
@@ -74,20 +83,5 @@ EOF
                 TestFailure::exceptionToString($e)
             );
         }
-    }
-
-    public function testDefaultSchema()
-    {
-        $this->constraint = new ResponseBodyConstraint($this->schemaManager, '/pets', 'get', 222);
-
-        $response = <<<JSON
-{
-  "code": 123456789,
-  "message": "foo"
-}
-JSON;
-        $response = json_decode($response);
-
-        self::assertTrue($this->constraint->evaluate($response, '', true), $this->constraint->evaluate($response));
     }
 }

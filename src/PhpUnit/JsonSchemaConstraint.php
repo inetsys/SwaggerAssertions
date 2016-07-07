@@ -2,51 +2,39 @@
 
 namespace FR3D\SwaggerAssertions\PhpUnit;
 
-use FR3D\SwaggerAssertions\SchemaManager;
 use JsonSchema\Validator;
 use PHPUnit_Framework_Constraint as Constraint;
 
 /**
- * Validate response body match against defined Swagger response schema.
+ * Validate given value match the expected JSON Schema.
  */
-class ResponseBodyConstraint extends Constraint
+class JsonSchemaConstraint extends Constraint
 {
     /**
-     * @var SchemaManager
+     * @var object
      */
-    protected $schemaManager;
+    protected $expectedSchema;
 
     /**
      * @var string
      */
-    protected $path;
+    private $context;
 
     /**
-     * @var string
+     * @param object $expectedSchema
+     * @param string $context
      */
-    protected $httpMethod;
-
-    /**
-     * @var int
-     */
-    protected $httpCode;
-
-    /**
-     * @param SchemaManager $schemaManager
-     * @param string $path Swagger path template.
-     * @param string $httpMethod
-     * @param int $httpCode
-     */
-    public function __construct(SchemaManager $schemaManager, $path, $httpMethod, $httpCode)
+    public function __construct($expectedSchema, $context)
     {
         parent::__construct();
 
-        $this->schemaManager = $schemaManager;
-        $this->path = $path;
-        $this->httpMethod = $httpMethod;
-        $this->httpCode = $httpCode;
+        $this->expectedSchema = $expectedSchema;
+        $this->context = $context;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function matches($other)
     {
         if ( ($this->httpCode == 204 || $this->httpCode == 304)
@@ -60,11 +48,17 @@ class ResponseBodyConstraint extends Constraint
         return $validator->isValid();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function failureDescription($other)
     {
         return json_encode($other) . ' ' . $this->toString();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function additionalFailureDescription($other)
     {
         $description = '';
@@ -77,22 +71,23 @@ class ResponseBodyConstraint extends Constraint
         return $description;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function toString()
     {
-        return 'is valid';
+        return 'is a valid ' . $this->context;
     }
 
     /**
-     * @param \stdClass $responseBody
+     * @param object $schema
      *
      * @return Validator
      */
-    protected function getValidator($responseBody)
+    protected function getValidator($schema)
     {
-        $responseSchema = $this->schemaManager->getResponseSchema($this->path, $this->httpMethod, $this->httpCode);
-
         $validator = new Validator();
-        $validator->check($responseBody, $responseSchema);
+        $validator->check($schema, $this->expectedSchema);
 
         return $validator;
     }

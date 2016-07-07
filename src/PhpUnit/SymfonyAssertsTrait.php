@@ -3,34 +3,34 @@
 namespace FR3D\SwaggerAssertions\PhpUnit;
 
 use FR3D\SwaggerAssertions\SchemaManager;
-use GuzzleHttp\Message\RequestInterface;
-use GuzzleHttp\Message\ResponseInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Facade functions for interact with Guzzle constraints.
+ * Facade functions for interacting with Symfony/HttpFoundation constraints.
  */
-trait GuzzleAssertsTrait
+trait SymfonyAssertsTrait
 {
     use AssertsTrait;
 
     /**
      * Asserts response match with the response schema.
      *
-     * @param ResponseInterface $response
+     * @param Response $response
      * @param SchemaManager $schemaManager
      * @param string $path percent-encoded path used on the request.
      * @param string $httpMethod
      * @param string $message
      */
     public function assertResponseMatch(
-        ResponseInterface $response,
+        Response $response,
         SchemaManager $schemaManager,
         $path,
         $httpMethod,
         $message = ''
     ) {
         $this->assertResponseMediaTypeMatch(
-            $response->getHeader('Content-Type'),
+            $response->headers->get('Content-Type'),
             $schemaManager,
             $path,
             $httpMethod,
@@ -38,7 +38,7 @@ trait GuzzleAssertsTrait
         );
 
         $httpCode = $response->getStatusCode();
-        $headers = $this->inlineHeaders($response->getHeaders());
+        $headers = $this->inlineHeaders($response->headers->all());
 
         $this->assertResponseHeadersMatch(
             $headers,
@@ -50,7 +50,7 @@ trait GuzzleAssertsTrait
         );
 
         $this->assertResponseBodyMatch(
-            json_decode($response->getBody()),
+            json_decode($response->getContent()),
             $schemaManager,
             $path,
             $httpMethod,
@@ -62,19 +62,19 @@ trait GuzzleAssertsTrait
     /**
      * Asserts request match with the request schema.
      *
-     * @param RequestInterface $request
+     * @param Request $request
      * @param SchemaManager $schemaManager
      * @param string $message
      */
     public function assertRequestMatch(
-        RequestInterface $request,
+        Request $request,
         SchemaManager $schemaManager,
         $message = ''
     ) {
-        $path = $request->getPath();
+        $path = $request->getRequestUri();
         $httpMethod = $request->getMethod();
 
-        $headers = $this->inlineHeaders($request->getHeaders());
+        $headers = $this->inlineHeaders($request->headers->all());
 
         $this->assertRequestHeadersMatch(
             $headers,
@@ -84,9 +84,9 @@ trait GuzzleAssertsTrait
             $message
         );
 
-        if (!empty((string) $request->getBody())) {
+        if (!empty((string) $request->getContent())) {
             $this->assertRequestMediaTypeMatch(
-                $request->getHeader('Content-Type'),
+                $request->headers->get('Content-Type'),
                 $schemaManager,
                 $path,
                 $httpMethod,
@@ -95,7 +95,7 @@ trait GuzzleAssertsTrait
         }
 
         $this->assertRequestBodyMatch(
-            json_decode($request->getBody()),
+            json_decode($request->getContent()),
             $schemaManager,
             $path,
             $httpMethod,
@@ -106,20 +106,20 @@ trait GuzzleAssertsTrait
     /**
      * Asserts response match with the response schema.
      *
-     * @param ResponseInterface $response
-     * @param RequestInterface $request
+     * @param Response $response
+     * @param Request $request
      * @param SchemaManager $schemaManager
      * @param string $message
      */
     public function assertResponseAndRequestMatch(
-        ResponseInterface $response,
-        RequestInterface $request,
+        Response $response,
+        Request $request,
         SchemaManager $schemaManager,
         $message = ''
     ) {
-		try {
-	        $this->assertRequestParametersMatch($request, $schemaManager, $request->getPath(), $request->getMethod(), $message);
-		} catch (\PHPUnit_Framework_ExpectationFailedException $e) {
+        try {
+            $this->assertRequestMatch($request, $schemaManager, $message);
+        } catch (\PHPUnit_Framework_ExpectationFailedException $e) {
             // If response represent a Client error then ignore.
             $statusCode = $response->getStatusCode();
             if ($statusCode < 400 || $statusCode > 499) {
@@ -127,7 +127,7 @@ trait GuzzleAssertsTrait
             }
         }
 
-        $this->assertResponseMatch($response, $schemaManager, $request->getPath(), $request->getMethod(), $message);
+        $this->assertResponseMatch($response, $schemaManager, $request->getRequestUri(), $request->getMethod(), $message);
     }
 
     /**

@@ -34,9 +34,36 @@ trait AssertsTrait
             throw new \RuntimeException('Request URI does not match with any swagger path definition');
         }
 
-        $constraint = new ResponseBodyConstraint($schemaManager, $template, $httpMethod, $httpCode);
+        $bodySchema = $schemaManager->getResponseSchema($template, $httpMethod, $httpCode);
+        $constraint = new JsonSchemaConstraint($bodySchema, 'response body');
 
         Assert::assertThat($responseBody, $constraint, $message);
+    }
+
+    /**
+     * Asserts request body match with the request schema.
+     *
+     * @param stdClass|stdClass[] $requestBody
+     * @param SchemaManager $schemaManager
+     * @param string $path percent-encoded path used on the request.
+     * @param string $httpMethod
+     * @param string $message
+     */
+    public function assertRequestBodyMatch(
+        $requestBody,
+        SchemaManager $schemaManager,
+        $path,
+        $httpMethod,
+        $message = ''
+    ) {
+        if (!$schemaManager->findPathInTemplates($path, $template, $params)) {
+            throw new \RuntimeException('Request URI does not match with any swagger path definition');
+        }
+
+        $bodySchema = $schemaManager->getRequestSchema($template, $httpMethod);
+        $constraint = new JsonSchemaConstraint($bodySchema, 'request body');
+
+        Assert::assertThat($requestBody, $constraint, $message);
     }
 
     /**
@@ -56,16 +83,49 @@ trait AssertsTrait
         $message = ''
     ) {
         if (!$schemaManager->findPathInTemplates($path, $template, $params)) {
+            // @codeCoverageIgnoreStart
             throw new \RuntimeException('Request URI does not match with any swagger path definition');
+            // @codeCoverageIgnoreEnd
         }
 
         // Strip charset encoding
         $ctHeader = ContentType::fromString('Content-Type: ' . $responseMediaType);
         $responseMediaType = $ctHeader->getMediaType();
 
-        $constraint = new ResponseMediaTypeConstraint($schemaManager, $template, $httpMethod);
+        $constraint = new MediaTypeConstraint($schemaManager->getResponseMediaTypes($template, $httpMethod));
 
         Assert::assertThat($responseMediaType, $constraint, $message);
+    }
+
+    /**
+     * Asserts request media type match with the media types defined.
+     *
+     * @param string $requestMediaType
+     * @param SchemaManager $schemaManager
+     * @param string $path percent-encoded path used on the request.
+     * @param string $httpMethod
+     * @param string $message
+     */
+    public function assertRequestMediaTypeMatch(
+        $requestMediaType,
+        SchemaManager $schemaManager,
+        $path,
+        $httpMethod,
+        $message = ''
+    ) {
+        if (!$schemaManager->findPathInTemplates($path, $template, $params)) {
+            // @codeCoverageIgnoreStart
+            throw new \RuntimeException('Request URI does not match with any swagger path definition');
+            // @codeCoverageIgnoreEnd
+        }
+
+        // Strip charset encoding
+        $ctHeader = ContentType::fromString('Content-Type: ' . $requestMediaType);
+        $requestMediaType = $ctHeader->getMediaType();
+
+        $constraint = new MediaTypeConstraint($schemaManager->getRequestMediaTypes($template, $httpMethod));
+
+        Assert::assertThat($requestMediaType, $constraint, $message);
     }
 
     /**
@@ -87,10 +147,39 @@ trait AssertsTrait
         $message = ''
     ) {
         if (!$schemaManager->findPathInTemplates($path, $template, $params)) {
+            // @codeCoverageIgnoreStart
             throw new \RuntimeException('Request URI does not match with any swagger path definition');
+            // @codeCoverageIgnoreEnd
         }
 
-        $constraint = new ResponseHeadersConstraint($schemaManager, $template, $httpMethod, $httpCode);
+        $constraint = new ResponseHeadersConstraint($schemaManager->getResponseHeaders($template, $httpMethod, $httpCode));
+
+        Assert::assertThat($headers, $constraint, $message);
+    }
+
+    /**
+     * Asserts request headers match with the media types defined.
+     *
+     * @param string[] $headers
+     * @param SchemaManager $schemaManager
+     * @param string $path percent-encoded path used on the request.
+     * @param string $httpMethod
+     * @param string $message
+     */
+    public function assertRequestHeadersMatch(
+        array $headers,
+        SchemaManager $schemaManager,
+        $path,
+        $httpMethod,
+        $message = ''
+    ) {
+        if (!$schemaManager->findPathInTemplates($path, $template, $params)) {
+            // @codeCoverageIgnoreStart
+            throw new \RuntimeException('Request URI does not match with any swagger path definition');
+            // @codeCoverageIgnoreEnd
+        }
+
+        $constraint = new RequestHeadersConstraint($schemaManager->getRequestHeadersParameters($template, $httpMethod));
 
         Assert::assertThat($headers, $constraint, $message);
     }

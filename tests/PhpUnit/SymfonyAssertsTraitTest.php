@@ -2,21 +2,21 @@
 
 namespace FR3D\SwaggerAssertionsTest\PhpUnit;
 
-use FR3D\SwaggerAssertions\PhpUnit\GuzzleAssertsTrait;
+use FR3D\SwaggerAssertions\PhpUnit\SymfonyAssertsTrait;
 use FR3D\SwaggerAssertions\SchemaManager;
-use GuzzleHttp\Message\RequestInterface;
-use GuzzleHttp\Message\ResponseInterface;
-use GuzzleHttp\Stream\StreamInterface;
 use PHPUnit_Framework_ExpectationFailedException as ExpectationFailedException;
 use PHPUnit_Framework_MockObject_MockObject as MockObject;
 use PHPUnit_Framework_TestCase as TestCase;
+use Symfony\Component\HttpFoundation\HeaderBag;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @covers FR3D\SwaggerAssertions\PhpUnit\GuzzleAssertsTrait
+ * @covers FR3D\SwaggerAssertions\PhpUnit\SymfonyAssertsTrait
  */
-class GuzzleAssertsTraitTest extends TestCase
+class SymfonyAssertsTraitTest extends TestCase
 {
-    use GuzzleAssertsTrait;
+    use SymfonyAssertsTrait;
 
     /**
      * @var SchemaManager
@@ -123,9 +123,9 @@ EOF
             self::assertResponseMatch($response, $this->schemaManager, '/api/pets', 'get');
             self::fail('Expected ExpectationFailedException to be thrown');
         } catch (ExpectationFailedException $e) {
-            self::assertEquals(
+            self::assertStringMatchesFormat(
                 <<<EOF
-Failed asserting that {"Content-Type":"application\/json"} is a valid response header.
+Failed asserting that {"content-type":"application\/json"%s} is a valid response header.
 [etag] The property etag is required
 
 EOF
@@ -196,7 +196,7 @@ EOF
         } catch (ExpectationFailedException $e) {
             self::assertEquals(
                 <<<EOF
-Failed asserting that {"Content-Type":"application\/json","X-Optional-Header":"any"} is a valid request header.
+Failed asserting that {"content-type":"application\/json","x-optional-header":"any"} is a valid request header.
 [x-required-header] The property x-required-header is required
 
 EOF
@@ -240,12 +240,8 @@ JSON;
     protected function getValidHeaders()
     {
         return [
-            'Content-Type' => [
-                'application/json',
-            ],
-            'ETag' => [
-                '123',
-            ],
+            'Content-Type' => 'application/json',
+            'ETag' => '123',
         ];
     }
 
@@ -255,19 +251,12 @@ JSON;
      * @param string[] $headers
      * @param string $body
      *
-     * @return MockObject|RequestInterface
+     * @return MockObject|Request
      */
     protected function createMockRequest($method, $path, array $headers, $body = '')
     {
-        $headersMap = $this->transformHeadersToMap($headers);
-
-        /** @var RequestInterface|MockObject $request */
-        $request = $this->getMock(RequestInterface::class);
-        $request->method('getHeader')->willReturnMap($headersMap);
-        $request->method('getHeaders')->willReturn($headers);
-        $request->method('getMethod')->willReturn($method);
-        $request->method('getPath')->willReturn($path);
-        $request->method('getBody')->willReturn($this->createMockStream($body));
+        $request = Request::create($path, $method, [], [], [], [], $body);
+        $request->headers = new HeaderBag($headers);
 
         return $request;
     }
@@ -277,48 +266,10 @@ JSON;
      * @param string[] $headers
      * @param string $body
      *
-     * @return MockObject|ResponseInterface
+     * @return MockObject|Response
      */
     protected function createMockResponse($statusCode, array $headers, $body)
     {
-        $headersMap = $this->transformHeadersToMap($headers);
-
-        /** @var ResponseInterface|MockObject $response */
-        $response = $this->getMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn($statusCode);
-        $response->method('getHeader')->willReturnMap($headersMap);
-        $response->method('getHeaders')->willReturn($headers);
-        $response->method('getBody')->willReturn($this->createMockStream($body));
-
-        return $response;
-    }
-
-    /**
-     * @param string $body
-     *
-     * @return StreamInterface|MockObject
-     */
-    protected function createMockStream($body)
-    {
-        /** @var StreamInterface|MockObject $stream */
-        $stream = $this->getMock(StreamInterface::class);
-        $stream->method('__toString')->willReturn($body);
-
-        return $stream;
-    }
-
-    /**
-     * @param string[] $headers
-     *
-     * @return array
-     */
-    private function transformHeadersToMap(array $headers)
-    {
-        $headersMap = [];
-        foreach ($headers as $headerName => $headerValues) {
-            $headersMap[$headerName] = [$headerName, implode(', ', $headerValues)];
-        }
-
-        return $headersMap;
+        return new Response($body, $statusCode, $headers);
     }
 }

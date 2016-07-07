@@ -22,6 +22,7 @@ There are two traits for provide predefined helper functions for different asser
 - [AssertsTrait](src/PhpUnit/AssertsTrait.php) For assert different parts of the response
 - [GuzzleAssertsTrait](src/PhpUnit/GuzzleAssertsTrait.php) For assert [Guzzle v5](https://github.com/guzzle/guzzle) responses.
 - [Psr7AssertsTrait](src/PhpUnit/Psr7AssertsTrait.php) For assert [PSR-7 compatible](http://www.php-fig.org/psr/psr-7/) responses.
+- [SymfonyAssertsTrait](src/PhpUnit/SymfonyAssertsTrait.php) For assert [Symfony HTTP Foundation](http://symfony.com/doc/current/components/http_foundation/index.html) responses.
 
 See examples at [examples/PhpUnit](examples/PhpUnit)
 
@@ -29,7 +30,7 @@ See examples at [examples/PhpUnit](examples/PhpUnit)
 
 <dl>
   <dt>Q: Can this library validate my Swagger definition?</dt>
-  <dd>A: No. This library validate your API responses against your Swagger definition.</dd>
+  <dd>A: No. This library validate your API requests and responses match your Swagger definition.</dd>
 </dl>
 
 ## License

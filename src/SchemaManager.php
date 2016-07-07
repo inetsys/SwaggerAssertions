@@ -2,9 +2,11 @@
 
 namespace FR3D\SwaggerAssertions;
 
-use FR3D\SwaggerAssertions\JsonSchema\Uri\UriRetriever;
+use FR3D\SwaggerAssertions\JsonSchema\Uri\Retrievers\FileGetContentsRetriever;
 use InvalidArgumentException;
 use JsonSchema\RefResolver;
+use JsonSchema\Uri\UriResolver;
+use JsonSchema\Uri\UriRetriever;
 use Rize\UriTemplate\UriTemplate;
 use stdClass;
 
@@ -21,19 +23,47 @@ class SchemaManager
     protected $definition;
 
     /**
-     * Swagger definition URI.
+     * Fetch the definition and resolve the references present in the schema.
      *
-     * @var string
+     * @param string $definitionUri
+     *
+     * @return self
      */
-    protected $definitionUri;
+    public static function fromUri($definitionUri)
+    {
+        $refResolver = new RefResolver((new UriRetriever())->setUriRetriever(new FileGetContentsRetriever()), new UriResolver());
+
+        return new self($refResolver->resolve($definitionUri));
+    }
 
     /**
-     * @param string $definitionUri
+     * @param object $definition Swagger 2 definition with all their references resolved.
      */
-    public function __construct($definitionUri)
+    public function __construct($definition)
     {
-        $this->definition = json_decode(file_get_contents($definitionUri));
-        $this->definitionUri = $definitionUri;
+        $this->definition = $definition;
+    }
+
+    /**
+     * @param string $path Swagger path template.
+     * @param string $method
+     *
+     * @return stdClass
+     */
+    public function getMethod($path, $method)
+    {
+        $method = strtolower($method);
+        $pathSegments = function ($path, $method) {
+            return [
+                'paths',
+                $path,
+                $method,
+            ];
+        };
+
+        $method = $this->getPath($pathSegments($path, $method));
+
+        return $method;
     }
 
     /**
@@ -55,14 +85,10 @@ class SchemaManager
     {
         $response = $this->getResponse($path, $method, $httpCode);
         if (!isset($response->schema)) {
-            throw new \UnexpectedValueException(
-                'Missing schema definition for ' . $this->pathToString([$path, $method, $httpCode])
-            );
+            return new stdClass();
         }
 
-        $schema = $response->schema;
-
-        return $this->resolveSchemaReferences($schema);
+        return $response->schema;
     }
 
     /**
@@ -206,28 +232,15 @@ class SchemaManager
         $result = $this->definition;
         foreach ($segments as $segment) {
             if (!isset($result->$segment)) {
+                // @codeCoverageIgnoreStart
                 throw new InvalidArgumentException('Missing ' . $segment);
+                // @codeCoverageIgnoreEnd
             }
 
             $result = $result->$segment;
         }
 
         return $result;
-    }
-
-    /**
-     * Resolve schema references to object.
-     *
-     * @param stdClass $schema
-     *
-     * @return stdClass The same object with references replaced with definition target.
-     */
-    protected function resolveSchemaReferences(stdClass $schema)
-    {
-        $refResolver = new RefResolver(new UriRetriever());
-        $refResolver->resolve($schema, $this->definitionUri);
-
-        return $schema;
     }
 
     /**
@@ -256,16 +269,121 @@ class SchemaManager
             $response = $this->getPath($pathSegments($path, $method, 'default'));
         }
 
-        return $this->resolveSchemaReferences($response);
+        return $response;
     }
 
     /**
-     * @param array $path
+     * Get the request media types for the given API operation.
      *
-     * @return string
+     * If request does not have specific media types then inherit from global API media types.
+     *
+     * @param string $path Swagger path template.
+     * @param string $method
+     *
+     * @return string[]
      */
-    public function pathToString(array $path)
+    public function getRequestMediaTypes($path, $method)
     {
-        return implode('.', $path);
+        $method = strtolower($method);
+        $mediaTypesPath = [
+            'paths',
+            $path,
+            $method,
+            'consumes',
+        ];
+
+        if ($this->hasPath($mediaTypesPath)) {
+            $mediaTypes = $this->getPath($mediaTypesPath);
+        } else {
+            $mediaTypes = $this->getPath(['consumes']);
+        }
+
+        return $mediaTypes;
+    }
+
+    /**
+     * @param string $path Swagger path template.
+     * @param string $method
+     *
+     * @return stdClass[]
+     */
+    public function getRequestHeadersParameters($path, $method)
+    {
+        $parameters = $this->getRequestParameters($path, $method);
+        $parameters = $this->filterParametersObjectByLocation($parameters, 'header');
+        if (empty($parameters)) {
+            return [];
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * @param string $path Swagger path template.
+     * @param string $method
+     *
+     * @return stdClass
+     */
+    public function getRequestSchema($path, $method)
+    {
+        $parameters = $this->getRequestParameters($path, $method);
+        $parameters = $this->filterParametersObjectByLocation($parameters, 'body');
+        switch (count($parameters)) {
+            case 0:
+                return new stdClass();
+            case 1:
+                break;
+            default:
+                // @codeCoverageIgnoreStart
+                throw new \DomainException('Too many body parameters. Only one is allowed');
+                // @codeCoverageIgnoreEnd
+        }
+
+        $parameter = $parameters[0];
+        if (!isset($parameter->schema)) {
+            // @codeCoverageIgnoreStart
+            throw new \DomainException('schema property is required for body parameter');
+            // @codeCoverageIgnoreEnd
+        }
+
+        return $parameter->schema;
+    }
+
+    /**
+     * @param string $path Swagger path template.
+     * @param string $method
+     *
+     * @return stdClass[]
+     */
+    public function getRequestParameters($path, $method)
+    {
+        $method = $this->getMethod($path, $method);
+        if (!isset($method->parameters)) {
+            return [];
+        }
+
+        return $method->parameters;
+    }
+
+    /**
+     * @param stdClass[] $parameters
+     * @param string $location
+     *
+     * @return \stdClass[]
+     */
+    private function filterParametersObjectByLocation(array $parameters, $location)
+    {
+        return array_values(array_filter(
+            $parameters,
+            function ($parameter) use ($location) {
+                if (!isset($parameter->in)) {
+                    // @codeCoverageIgnoreStart
+                    throw new InvalidArgumentException('Missing "in" field in Parameter Object');
+                    // @codeCoverageIgnoreEnd
+                }
+
+                return ($parameter->in === $location);
+            }
+        ));
     }
 }
