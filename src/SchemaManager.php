@@ -350,22 +350,6 @@ class SchemaManager
     }
 
     /**
-     * @param string $path Swagger path template.
-     * @param string $method
-     *
-     * @return stdClass[]
-     */
-    public function getRequestParameters($path, $method)
-    {
-        $method = $this->getMethod($path, $method);
-        if (!isset($method->parameters)) {
-            return [];
-        }
-
-        return $method->parameters;
-    }
-
-    /**
      * @param stdClass[] $parameters
      * @param string $location
      *
